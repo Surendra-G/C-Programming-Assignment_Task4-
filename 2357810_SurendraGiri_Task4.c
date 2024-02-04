@@ -39,12 +39,12 @@ void *thread(void *threadArgs)
     
     int start = structure->startingPoint;
     int end = structure->endingPoint;
-    
+    int i,j;
     // using for Loop through each column of the row 'i' in the image
-    for (int i = start; i < end; i++)
+    for (i = start; i < end; i++)
     {
 
-        for (int j = 0; j < width; j++)
+        for (j = 0; j < width; j++)
         {
             red = Image[4 * width * i + 4 * j + 0];// Extract the red channel value from the image
             green = Image[4 * width * i + 4 * j + 1];// Extract the green channel value from the image
@@ -185,7 +185,8 @@ void main()
     }
     // Calculate how many rows of image each thread will process
     int divide[threadNumber];
-    for (int c = 0; c < threadNumber; c++)
+    int c,d,e,f,g,h;
+    for (c = 0; c < threadNumber; c++)
     {
         divide[c] = height / threadNumber;
     }
@@ -195,14 +196,14 @@ void main()
 
     int remainder = height % threadNumber;
     //Populate each element of mainStruct with the corresponding startFrom and endTo values.
-    for (int d = 0; d < remainder; d++)
+    for (d = 0; d < remainder; d++)
     {
         divide[d] = divide[d] + 1;
     }
     //Declare an array of threadStruct with size threadNumber
     int startingPoint[threadNumber];
     int endingPoint[threadNumber];
-    for (int e = 0; e < threadNumber; e++)
+    for (e = 0; e < threadNumber; e++)
     {
         if (e == 0) //if condition 
         {
@@ -210,14 +211,14 @@ void main()
         }
         else//else statement
         {
-            startingPoint[e] = endTo[e - 1] + 1;
+            startingPoint[e] = endingPoint[e - 1] + 1;
         }
         endingPoint[e] = startingPoint[e] + divide[e] - 1;
     }
     //Declare an array of threadStruct with size threadNumber.
     struct threadStruct mainStruct[threadNumber];
     //Populate each element of mainStruct with the corresponding startFrom and endTo values
-    for (int f = 0; f < threadNumber; f++)
+    for (f = 0; f < threadNumber; f++)
     {
         mainStruct[f].startingPoint = startingPoint[f];
         mainStruct[f].endingPoint = endingPoint[f];
@@ -227,12 +228,12 @@ void main()
     //Initialize a semaphore named semaphore with a value of 1 and with process-local scope.
     sem_init(&semaphore, 0, 1);
     //Create threadNumber threads with the thread function and pass the corresponding element
-    for (int g = 0; g < threadNumber; g++)
+    for (g = 0; g < threadNumber; g++)
     {
         pthread_create(&threadId[g], NULL, thread, &mainStruct[g]);
     }
     //Wait for each thread to terminate before proceeding
-    for (int h = 0; h < threadNumber; h++)
+    for (h = 0; h < threadNumber; h++)
     {
         pthread_join(threadId[h], NULL);
     }
@@ -241,7 +242,7 @@ void main()
     //Print a message indicating that the program has finished.
     printf("Done applying guassian blur!!!\n");
     // Encode the NewImage array as a PNG image and specified in outputImage
-    lodepng_encode32_file(outputImage, NewImage, w, h);
+    lodepng_encode32_file(outputImage, NewImage, width, height);
     //Free the memory allocated for the Image and NewImage arrays.
     free(Image);
     free(NewImage);
