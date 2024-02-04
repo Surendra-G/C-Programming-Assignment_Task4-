@@ -6,244 +6,155 @@
 #include <stdio.h>  //this library is used for the input & output operations 
 #include <pthread.h> //this library allows used for the multithreading 
 #include <stdlib.h> //this library is used for the dynamic  memory allocation 
-#include <unistd.h> //this library is used for the sleep functions
 #include "lodepng.h"//this library is used for encoding and decoding the PNG image files
-#include <semaphore.h>//definitions and functions for working with semaphores(synchronization)
 
+int ***arr;
+unsigned char *image;
 
-
-//declaring the semaphore data type
-sem_t semaphore;
-
-// Declaring the pointer of the Image and the NewImage to store image data in memory
-unsigned char *Image, *NewImage;
-
-//declaring red, green, blue, and alpha variables for a pixel and i as itreator
-unsigned int width, height, red, green, blue, alpha, i;
-
-//creating a struct 
-struct threadStruct
+struct structPixels
 {
-    int startingPoint;   // this is a pixel index starting point ofa thread
-    int endingPoint;     // this is a pixel index ending point of a thread
+    int startingPoint, endingPoint, h, w, thread_id, kernel_size;
 };
 
-//declaring a function with a name thread as pointer
-void *thread(void *threadArgs)
+void *blur(void *ptr)
 {
-    //wait on the semaphore to ensure synchronization of access to shared resources
-    sem_wait(&semaphore);
-    
-    // the Struct "threadStruct" contains the range of pixels that the thread will process
-    struct threadStruct *structure = (struct threadStruct *)threadArgs;
-    
-    int start = structure->startingPoint;
-    int end = structure->endingPoint;
-    int i,j;
-    // using for Loop through each column of the row 'i' in the image
-    for (i = start; i < end; i++)
-    {
+    int i, j, k, l, m;
+    struct structPixels *arg = (struct structPixels *)ptr;
+    int startingPoint = arg->startingPoint, endingPoint = arg->endingPoint, kernel_size = arg->kernel_size;
+    int thread_id = arg->thread_id, height = arg->h, width = arg->w;
 
+    for (i = startingPoint; i <= endingPoint; i++)
+    {
         for (j = 0; j < width; j++)
         {
-            red = Image[4 * width * i + 4 * j + 0];// Extract the red channel value from the image
-            green = Image[4 * width * i + 4 * j + 1];// Extract the green channel value from the image
-            blue = Image[4 * width * i + 4 * j + 2];// Extract the blue channel value from the image
-            alpha = Image[4 * width * i + 4 * j + 3]; // Extract the alpha channel value from the image
-            // Check if this is the first pixel in the image
-            if (i == 0 && j == 0)
+            int avg_red = 0, avg_green = 0, avg_blue = 0, number_of_pixels = 0;
+
+            for (l = -kernel_size; l <= kernel_size; l += kernel_size)
             {
-                // Calculates the average of the colors of the pixel at (i,j) and its three neighboring pixels in all colume
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * i + 4 * 1 + 0] + Image[4 * width * 1 + 4 * j + 0] + Image[4 * width * 1 + 4 * 1 + 0]) / 4;
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * i + 4 * 1 + 1] + Image[4 * width * 1 + 4 * j + 1] + Image[4 * width * 1 + 4 * 1 + 1]) / 4;
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * i + 4 * 1 + 2] + Image[4 * width * 1 + 4 * j + 2] + Image[4 * width * 1 + 4 * 1 + 2]) / 4;
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * i + 4 * 1 + 3] + Image[4 * width * 1 + 4 * j + 3] + Image[4 * width * 1 + 4 * 1 + 3]) / 4;
-            }
-            // Check if the current pixel is at the top-left corner of the image
-            if (i == 0 && j != 0 && j != width - 1)
-            {  
-                 // Compute the average of the current pixel and its surrounding pixels
-                // and assign the resulting values to the corresponding channels of the new image
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * i + 4 * (j - 1) + 0] + Image[4 * width * i + 4 * (j + 1) + 0] + Image[4 * width * (i + 1) + 4 * j + 0] + Image[4 * width * (i + 1) + 4 * (j - 1) + 0] + Image[4 * width * i + 4 * (j + 1) + 0]) / 6;
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * i + 4 * (j - 1) + 1] + Image[4 * width * i + 4 * (j + 1) + 1] + Image[4 * width * (i + 1) + 4 * j + 1] + Image[4 * width * (i + 1) + 4 * (j - 1) + 1] + Image[4 * width * i + 4 * (j + 1) + 1]) / 6;
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * i + 4 * (j - 1) + 2] + Image[4 * width * i + 4 * (j + 1) + 2] + Image[4 * width * (i + 1) + 4 * j + 2] + Image[4 * width * (i + 1) + 4 * (j - 1) + 2] + Image[4 * width * i + 4 * (j + 1) + 2]) / 6;
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * i + 4 * (j - 1) + 3] + Image[4 * width * i + 4 * (j + 1) + 3] + Image[4 * width * (i + 1) + 4 * j + 3] + Image[4 * width * (i + 1) + 4 * (j - 1) + 3] + Image[4 * width * i + 4 * (j + 1) + 3]) / 6;
-            }
-               // checks if the current pixel is in the top-right corner of the image
-            if (i == 0 && j == width - 1)
-            {
-                
-                // current pixel and its immediate neighbors to the left and down, as well as the pixel located at the intersection of the
-                // first row and last column. The resulting pixel values are stored in the corresponding indices of the NewImage array.
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * i + 4 * (j - 1) + 0] + Image[4 * width * 1 + 4 * (j - 1) + 0] + Image[4 * width * 1 + 4 * j + 0]) / 4;
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * i + 4 * (j - 1) + 1] + Image[4 * width * 1 + 4 * (j - 1) + 1] + Image[4 * width * 1 + 4 * j + 1]) / 4;
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * i + 4 * (j - 1) + 2] + Image[4 * width * 1 + 4 * (j - 1) + 2] + Image[4 * width * 1 + 4 * j + 2]) / 4;
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * i + 4 * (j - 1) + 3] + Image[4 * width * 1 + 4 * (j - 1) + 3] + Image[4 * width * 1 + 4 * j + 3]) / 4;
-            }
-            // checks if the current pixel being processed is the last pixel in the image (bottom right corner).
-            if (i == height - 1 && j == width - 1)
-            {
-                // 3x3 box filter to average neighboring pixel values
-                // Center pixel is at (i,j)
-                // Top left pixel is at (i-1, j-1)
-                // Top pixel is at (i-1, j)
-                // Top right pixel is at (i-1, j+1)
-                // Left pixel is at (i, j-1)
-                // Right pixel is at (i, j+1)
-                // Bottom left pixel is at (i+1, j-1)
-                // Bottom pixel is at (i+1, j)
-                // Bottom right pixel is at (i+1, j+1)
-                
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * (i - 1) + 4 * j + 0] + Image[4 * width * (i - 1) + 4 * (j + 1) + 0] + Image[4 * width * i + 4 * (j + 1) + 0]) / 4;
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * (i - 1) + 4 * j + 1] + Image[4 * width * (i - 1) + 4 * (j + 1) + 1] + Image[4 * width * i + 4 * (j + 1) + 1]) / 4;
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * (i - 1) + 4 * j + 2] + Image[4 * width * (i - 1) + 4 * (j + 1) + 2] + Image[4 * width * i + 4 * (j + 1) + 2]) / 4;
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * (i - 1) + 4 * j + 3] + Image[4 * width * (i - 1) + 4 * (j + 1) + 3] + Image[4 * width * i + 4 * (j + 1) + 3]) / 4;
-            }
-            //checks if the current pixel is on the left edge of the image (j == 0) and is not on the top or bottom row of the image (i != 0 && i != h - 1).
-            if (j == 0 && i != 0 && i != height - 1)
-            {
-                //calculating the average pixel value of a given pixel and its surrounding 5 pixels, and
-                //toring it in the corresponding pixel location in a new image array.
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * i + 4 * (j + 1) + 0] + Image[4 * width * (i - 1) + 4 * j + 0] + Image[4 * width * (i + 1) + 4 * j + 0] + Image[4 * width * (i - 1) + 4 * (j + 1) + 0] + Image[4 * width * (i + 1) + 4 * (j + 1) + 0]) / 6;
+                for (m = -kernel_size; m <= kernel_size; m += kernel_size)
+                {
+                    int x_pixel = i + l;
+                    int y_pixel = j + m;
 
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * i + 4 * (j + 1) + 1] + Image[4 * width * (i - 1) + 4 * j + 1] + Image[4 * width * (i + 1) + 4 * j + 1] + Image[4 * width * (i - 1) + 4 * (j + 1) + 1] + Image[4 * width * (i + 1) + 4 * (j + 1) + 1]) / 6;
-
-                NewImage[4 * width * i + 4 * j + 2] = (red + Image[4 * width * i + 4 * (j + 1) + 2] + Image[4 * width * (i - 1) + 4 * j + 2] + Image[4 * width * (i + 1) + 4 * j + 2] + Image[4 * width * (i - 1) + 4 * (j + 1) + 2] + Image[4 * width * (i + 1) + 4 * (j + 1) + 2]) / 6;
-
-                NewImage[4 * width * i + 4 * j + 3] = (red + Image[4 * width * i + 4 * (j + 1) + 3] + Image[4 * width * (i - 1) + 4 * j + 3] + Image[4 * width * (i + 1) + 4 * j + 3] + Image[4 * width * (i - 1) + 4 * (j + 1) + 3] + Image[4 * width * (i + 1) + 4 * (j + 1) + 3]) / 6;
+                    if (x_pixel >= 0 && y_pixel >= 0 && x_pixel < height && y_pixel < width)
+                    {
+                        avg_red += arr[x_pixel][y_pixel][0];
+                        avg_green += arr[x_pixel][y_pixel][1];
+                        avg_blue += arr[x_pixel][y_pixel][2];
+                        number_of_pixels++;
+                    }
+                }
             }
-            //checking if the current column represented by j is the last column (with index w-1) and if the current row represented by i is not the first or last row
-            if (j == width - 1 && i != 0 && i != height - 1)
-            {
-                // calculates the color values of the new pixel at coordinates (i, j) based on the color values of the surrounding pixels in the original image
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * (i - 1) + 4 * (j + 1) + 0] + Image[4 * width * (i + 1) + 4 * j + 0] + Image[4 * width * i + 4 * (j - 1) + 0] + Image[4 * width * (i - 1) + 4 * (j - 1) + 0] + Image[4 * width * (i + 1) + 4 * (j - 1) + 0]) / 6;
-
-                NewImage[4 * width * i + 4 * j + 1] = (green + red + Image[4 * width * (i - 1) + 4 * j + 1] + Image[4 * width * (i + 1) + 4 * j + 1] + Image[4 * width * i + 4 * (j - 1) + 1] + Image[4 * width * (i - 1) + 4 * (j - 1) + 1] + Image[4 * width * (i + 1) + 4 * (j - 1) + 1]) / 6;
-
-                NewImage[4 * width * i + 4 * j + 2] = (blue + red + Image[4 * width * (i - 1) + 4 * j + 2] + Image[4 * width * (i + 1) + 4 * j + 2] + Image[4 * width * i + 4 * (j - 1) + 2] + Image[4 * width * (i - 1) + 4 * (j - 1) + 2] + Image[4 * width * (i + 1) + 4 * (j - 1) + 2]) / 6;
-
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * (i - 1) + 4 * (j + 1) + 0] + Image[4 * width * (i + 1) + 4 * j + 3] + Image[4 * width * i + 4 * (j - 1) + 3] + Image[4 * width * (i - 1) + 4 * (j - 1) + 3] + Image[4 * width * (i + 1) + 4 * (j - 1) + 3]) / 6;
-            }
-            // checks if both the value of variable i is equal to h - 1 and the value of variable j is equal to 0.
-            if (i == height - 1 && j == 0)
-            {
-                //average is taking into account the red, green, blue, and alpha (transparency) channels of the pixels,
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * (i - 1) + 4 * j + 0] + Image[4 * width * (i - 1) + 4 * (j - 1) + 0] + Image[4 * width * i + 4 * (j - 1) + 0]) / 4;
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * (i - 1) + 4 * j + 1] + Image[4 * width * (i - 1) + 4 * (j - 1) + 1] + Image[4 * width * i + 4 * (j - 1) + 1]) / 4;
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * (i - 1) + 4 * j + 2] + Image[4 * width * (i - 1) + 4 * (j - 1) + 2] + Image[4 * width * i + 4 * (j - 1) + 2]) / 4;
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * (i - 1) + 4 * j + 3] + Image[4 * width * (i - 1) + 4 * (j - 1) + 3] + Image[4 * width * i + 4 * (j - 1) + 3]) / 4;
-            }
-            //checking if the current pixel being processed is in the bottom row of the image (i.e., i is equal to h - 1), but not in either the leftmost or rightmost columns (j is not equal to 0 and not equal to w - 1).
-            if (i == height - 1 && j != 0 && j != width - 1)
-            {
-                //calculating the average of the current pixel and its three neighboring pixels above and to the right, above and to the left, and directly above,
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * i + 4 * j + 0] + Image[4 * width * i + 4 * (j + 1) + 0] + Image[4 * width * (i - 1) + 4 * j + 0] + Image[4 * width * (i - 1) + 4 * (j - 1) + 0] + Image[4 * width * (i - 1) + 4 * (j + 1) + 0]) / 6;
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * i + 4 * j + 1] + Image[4 * width * i + 4 * (j + 1) + 1] + Image[4 * width * (i - 1) + 4 * j + 1] + Image[4 * width * (i - 1) + 4 * (j - 1) + 1] + Image[4 * width * (i - 1) + 4 * (j + 1) + 1]) / 6;
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * i + 4 * j + 2] + Image[4 * width * i + 4 * (j + 1) + 2] + Image[4 * width * (i - 1) + 4 * j + 2] + Image[4 * width * (i - 1) + 4 * (j - 1) + 2] + Image[4 * width * (i - 1) + 4 * (j + 1) + 2]) / 6;
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * i + 4 * j + 3] + Image[4 * width * i + 4 * (j + 1) + 3] + Image[4 * width * (i - 1) + 4 * j + 3] + Image[4 * width * (i - 1) + 4 * (j - 1) + 3] + Image[4 * width * (i - 1) + 4 * (j + 1) + 3]) / 6;
-            }
-             //checks if i is not the first or last row of the image, and j is not the first or last column of the image.
-            if (i != 0 && i != height - 1 && j != 0 && j != width - 1)
-            {
-                //calculating the average value of a pixel and its eight neighboring pixels in an image, and storing the result in a corresponding pixel in a new image.
-                NewImage[4 * width * i + 4 * j + 0] = (red + Image[4 * width * i + 4 * (j - 1) + 0] + Image[4 * width * i + 4 * (j + 1) + 0] + Image[4 * width * (i - 1) + 4 * j + 0] + Image[4 * width * (i + 1) + 4 * j + 0] + Image[4 * width * (i - 1) + 4 * (j - 1) + 0] + Image[4 * width * (i - 1) + 4 * (j + 1) + 0] + Image[4 * width * (i + 1) + 4 * (j - 1) + 0] + Image[4 * width * (i + 1) + 4 * (j + 1) + 0]) / 9;
-
-                NewImage[4 * width * i + 4 * j + 1] = (green + Image[4 * width * i + 4 * (j - 1) + 2] + Image[4 * width * i + 4 * (j + 1) + 1] + Image[4 * width * (i - 1) + 4 * j + 1] + Image[4 * width * (i + 1) + 4 * j + 1] + Image[4 * width * (i - 1) + 4 * (j - 1) + 1] + Image[4 * width * (i - 1) + 4 * (j + 1) + 1] + Image[4 * width * (i + 1) + 4 * (j - 1) + 1] + Image[4 * width * (i + 1) + 4 * (j + 1) + 1]) / 9;
-
-                NewImage[4 * width * i + 4 * j + 2] = (blue + Image[4 * width * i + 4 * (j - 1) + 2] + Image[4 * width * i + 4 * (j + 1) + 2] + Image[4 * width * (i - 1) + 4 * j + 2] + Image[4 * width * (i + 1) + 4 * j + 2] + Image[4 * width * (i - 1) + 4 * (j - 1) + 2] + Image[4 * width * (i - 1) + 4 * (j + 1) + 2] + Image[4 * width * (i + 1) + 4 * (j - 1) + 2] + Image[4 * width * (i + 1) + 4 * (j + 1) + 2]) / 9;
-
-                NewImage[4 * width * i + 4 * j + 3] = (alpha + Image[4 * width * i + 4 * (j - 1) + 3] + Image[4 * width * i + 4 * (j + 1) + 3] + Image[4 * width * (i - 1) + 4 * j + 3] + Image[4 * width * (i + 1) + 4 * j + 3] + Image[4 * width * (i - 1) + 4 * (j - 1) + 3] + Image[4 * width * (i - 1) + 4 * (j + 1) + 3] + Image[4 * width * (i + 1) + 4 * (j - 1) + 3] + Image[4 * width * (i + 1) + 4 * (j + 1) + 3]) / 9;
-            }
+            image[4 * width * i + 4 * j + 0] = avg_red / number_of_pixels;
+            image[4 * width * i + 4 * j + 1] = avg_green / number_of_pixels;
+            image[4 * width * i + 4 * j + 2] = avg_blue / number_of_pixels;
         }
     }
-    //call the semaphore function
-    sem_post(&semaphore);
+    pthread_exit(0);
 }
+
 void main()
 {
-    // Declare variables to store input and output image file names, and the number of threads
-    char inputImage[200], outputImage[200];
-    
-    int threadNumber;
-    //Print messages to prompt the user to enter the input and output image file names
-    printf("Note: Only .png image file can Enter.\n");
-    printf("Image name.png to apply gaussian blur filter\n");
-    scanf("%s", inputImage);
-    printf("Input output image name as.png \n");
-    scanf("%s", outputImage);
-    // Prompt the user to enter the number of threads
-    printf("Enter number of threads: \n");
-    scanf("%d", &threadNumber);
-    //Decode the input image file and store the image data in two arrays, Image and NewImage
-    unsigned int error;
-    error = lodepng_decode32_file(&Image, &width, &height, inputImage);
-    lodepng_decode32_file(&NewImage, &width, &height, inputImage);
-    // Check for any decoding errors
+    unsigned int error, width, height;
+    int i, j, k;
+    int number_of_threads, kernel_size;
+    char filename[20];
+
+    printf("Enter image file that you want to blur (file must be in .png extension): ");
+    scanf("%s", filename);
+
+    error = lodepng_decode32_file(&image, &width, &height, filename);
+
+    printf("\nEnter number of threads that you want to use to blur the image: ");
+    scanf("%d", &number_of_threads);
+
+    if (number_of_threads > height)
+    {
+        number_of_threads = number_of_threads % height + 1;
+        printf("\nThe number of threads is greater than height\n Automatically choose required number of threads: %d threads", number_of_threads);
+    }
+
+    printf("\n\nPlease enter the size (level of blur) of the Kernel (blur matrix) that you want to use\nEnter \"1\" for 3x3, \"2\" for 5x5, \"3\" for 7x7 matrix and so on: ");
+    scanf("%d", &kernel_size);
+
+    arr = (int ***)malloc(height * sizeof(int **));
+    for (i = 0; i < height; i++)
+    {
+        arr[i] = (int **)malloc(width * sizeof(int *));
+        for (j = 0; j < width; j++)
+        {
+            arr[i][j] = (int *)malloc(3 * sizeof(int));
+        }
+    }
+
     if (error)
     {
-        printf("%d %s", error, lodepng_error_text(error));
+        printf("Error in decoding image %d: %s\n", error, lodepng_error_text(error));
     }
-    // Calculate how many rows of image each thread will process
-    int divide[threadNumber];
-    int c,d,e,f,g,h;
-    for (c = 0; c < threadNumber; c++)
+    else
     {
-        divide[c] = height / threadNumber;
+        for (i = 0; i < height; i++)
+        {
+            for (j = 0; j < width; j++)
+            {
+                for (k = 0; k < 3; k++)
+                {
+                    arr[i][j][k] = image[4 * width * i + 4 * j + k];
+                }
+            }
+        }
     }
-    // If the image height is not divisible by the number of threads,
-    // distribute the remaining rows among the threads
-     //Calculate the starting and ending row indices for each thread
 
-    int remainder = height % threadNumber;
-    //Populate each element of mainStruct with the corresponding startFrom and endTo values.
-    for (d = 0; d < remainder; d++)
+    int slice_height[number_of_threads];
+    for (i = 0; i < number_of_threads; i++)
     {
-        divide[d] = divide[d] + 1;
+        slice_height[i] = height / number_of_threads;
     }
-    //Declare an array of threadStruct with size threadNumber
-    int startingPoint[threadNumber];
-    int endingPoint[threadNumber];
-    for (e = 0; e < threadNumber; e++)
+    int reminderHeight = height % number_of_threads;
+    for (i = 0; i < reminderHeight; i++)
     {
-        if (e == 0) //if condition 
+        slice_height[i]++;
+    }
+    int start_height[number_of_threads], end_height[number_of_threads];
+    for (i = 0; i < number_of_threads; i++)
+    {
+        if (i == 0)
         {
-            startingPoint[e] = 0;
+            start_height[i] = 0;
         }
-        else//else statement
+        else
         {
-            startingPoint[e] = endingPoint[e - 1] + 1;
+            start_height[i] = end_height[i - 1] + 1;
         }
-        endingPoint[e] = startingPoint[e] + divide[e] - 1;
+        end_height[i] = start_height[i] + slice_height[i] - 1;
     }
-    //Declare an array of threadStruct with size threadNumber.
-    struct threadStruct mainStruct[threadNumber];
-    //Populate each element of mainStruct with the corresponding startFrom and endTo values
-    for (f = 0; f < threadNumber; f++)
+
+    struct structPixels divider[number_of_threads];
+    pthread_t threads[number_of_threads];
+    int thid = 1;
+    for (i = 0; i < number_of_threads; i++)
     {
-        mainStruct[f].startingPoint = startingPoint[f];
-        mainStruct[f].endingPoint = endingPoint[f];
+        divider[i].startingPoint = start_height[i];
+        divider[i].endingPoint = end_height[i];
+        divider[i].h = height;
+        divider[i].w = width;
+        divider[i].thread_id = thid;
+        divider[i].kernel_size = kernel_size;
+        thid++;
+        pthread_create(&threads[i], NULL, blur, &divider[i]);
     }
-    //Declare an array of pthread_t with size threadNumber.
-    pthread_t threadId[threadNumber];
-    //Initialize a semaphore named semaphore with a value of 1 and with process-local scope.
-    sem_init(&semaphore, 0, 1);
-    //Create threadNumber threads with the thread function and pass the corresponding element
-    for (g = 0; g < threadNumber; g++)
+
+    for (i = 0; i < number_of_threads; i++)
     {
-        pthread_create(&threadId[g], NULL, thread, &mainStruct[g]);
+        pthread_join(threads[i], NULL);
     }
-    //Wait for each thread to terminate before proceeding
-    for (h = 0; h < threadNumber; h++)
-    {
-        pthread_join(threadId[h], NULL);
-    }
-    //Destroy the semaphore semaphore
-    sem_destroy(&semaphore);
-    //Print a message indicating that the program has finished.
-    printf("Done applying guassian blur!!!\n");
-    // Encode the NewImage array as a PNG image and specified in outputImage
-    lodepng_encode32_file(outputImage, NewImage, width, height);
-    //Free the memory allocated for the Image and NewImage arrays.
-    free(Image);
-    free(NewImage);
+
+    unsigned char *png;
+    char image_name[20];
+    size_t pngsize;
+
+    printf("\n\nImage has been successfully blurred. Enter the name of new file for the blurred image (with .png extension): ");
+    scanf("%s", image_name);
+    lodepng_encode32(&png, &pngsize, image, width, height);
+    lodepng_save_file(png, pngsize, image_name);
 }
